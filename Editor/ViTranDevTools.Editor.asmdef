@@ -1,0 +1,17 @@
+{
+    "name": "ViTranDevTools.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:fa57896691ee15446a95eb0f906fcd2d",
+        "GUID:6161bd5fe5f00164b8a2b3ad53b3ff7e"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
