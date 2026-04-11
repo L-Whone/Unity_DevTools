@@ -1,0 +1,11 @@
+{
+  "name": "com.vitran.devtools",
+  "version": "1.0.0",
+  "displayName": "ViTran Dev Tools",
+  "description": "Unity editor tools for scene setup and workflow automation",
+  "unity": "2021.3",
+  "dependencies": {
+    "com.unity.cinemachine": "2.9.7",
+    "com.qhenshaw.unitytools": "https://github.com/qhenshaw/UnityTools.git"
+  }
+}
