@@ -12,10 +12,12 @@ public partial class CreateNewSceneSetup : EditorWindow
     [SerializeField] private List<SceneInfo> additiveScenes = new List<SceneInfo>
     {
         new SceneInfo { sceneName = "Cameras"},
-        new SceneInfo { sceneName = "Rendering"},
+        new SceneInfo { sceneName = "Lighting"},
         new SceneInfo { sceneName = "UI"},
-        new SceneInfo { sceneName = "World"},
-        new SceneInfo { sceneName = "CHARACTERS"},
+        new SceneInfo { sceneName = "Level"},
+        new SceneInfo { sceneName = "Props"},
+        new SceneInfo { sceneName = "Players"},
+        new SceneInfo { sceneName = "Enemies"},
     };
 
     SerializedObject serializedObject;
