@@ -8,8 +8,15 @@ using UnityEngine.SceneManagement;
 
 public partial class CreateNewSceneSetup : EditorWindow
 {
+    // EditorPrefs key — unique enough to avoid collisions with other tools
+    private const string SCENES_FOLDER_PREF_KEY = "CreateNewSceneSetup_ScenesFolder";
+    private const string DEFAULT_SCENES_FOLDER = "Assets/Scenes/";
+
     [SerializeField] private string scenePrefix = "NewScene";
-    [SerializeField] private List<SceneInfo> additiveScenes = new List<SceneInfo>
+    [SerializeField] private string scenesFolder = DEFAULT_SCENES_FOLDER;
+
+    [SerializeField]
+    private List<SceneInfo> additiveScenes = new List<SceneInfo>
     {
         new SceneInfo { sceneName = "Cameras"},
         new SceneInfo { sceneName = "Lighting"},
@@ -35,10 +42,11 @@ public partial class CreateNewSceneSetup : EditorWindow
         // wrapper around the class it's in
         serializedObject = new SerializedObject(this);
 
-
-
         // pointer to field of serialized bject
         additiveScenesProperty = serializedObject.FindProperty("additiveScenes");
+
+        // Restore the saved folder path, falling back to the default if none is saved yet
+        scenesFolder = EditorPrefs.GetString(SCENES_FOLDER_PREF_KEY, DEFAULT_SCENES_FOLDER);
     }
 
     private void OnGUI()
@@ -46,9 +54,65 @@ public partial class CreateNewSceneSetup : EditorWindow
         serializedObject.Update();
 
         EditorGUILayout.LabelField("New Scene Setup Menu", EditorStyles.boldLabel);
+        EditorGUILayout.Space();
 
         // Set Scene Name
         scenePrefix = EditorGUILayout.TextField("Scene Prefix", scenePrefix);
+        EditorGUILayout.Space();
+
+        // Set Scenes Folder
+        EditorGUILayout.LabelField("Scenes Folder", EditorStyles.boldLabel);
+        EditorGUILayout.BeginHorizontal();
+
+        EditorGUI.BeginChangeCheck();
+        scenesFolder = EditorGUILayout.TextField(scenesFolder);
+        if (EditorGUI.EndChangeCheck())
+        {
+            // Persist immediately whenever the user edits the text field directly
+            SaveFolderPref();
+        }
+
+        if (GUILayout.Button("Browse", GUILayout.Width(60)))
+        {
+            // Open a native folder picker starting from the current selection
+            string absPath = EditorUtility.OpenFolderPanel(
+                "Choose Scenes Folder",
+                scenesFolder,
+                ""
+            );
+
+            // OpenFolderPanel returns an absolute path; convert it to a project-relative one
+            if (!string.IsNullOrEmpty(absPath))
+            {
+                string projectRoot = System.IO.Path.GetFullPath(Application.dataPath + "/..").Replace("\\", "/");
+                string normalizedAbs = absPath.Replace("\\", "/");
+
+                if (normalizedAbs.StartsWith(projectRoot))
+                {
+                    scenesFolder = normalizedAbs.Substring(projectRoot.Length).TrimStart('/');
+
+                    if (!scenesFolder.EndsWith("/"))
+                        scenesFolder += "/";
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog(
+                        "Invalid Folder",
+                        "Please choose a folder inside this Unity project.",
+                        "OK"
+                    );
+                }
+
+                SaveFolderPref();
+                GUI.FocusControl(null); // clear keyboard focus so the text field refreshes
+            }
+        }
+
+        EditorGUILayout.EndHorizontal();
+
+        // Small hint showing the resolved path so the user can confirm it looks right
+        EditorGUILayout.HelpBox($"Scenes will be saved to: {scenesFolder}", MessageType.None);
+        EditorGUILayout.Space();
 
         // set Additive Scenes
         EditorGUILayout.PropertyField(additiveScenesProperty, true);
@@ -60,10 +124,14 @@ public partial class CreateNewSceneSetup : EditorWindow
             CreateScenes(scenePrefix);
         }
 
-
         serializedObject.ApplyModifiedProperties();
     }
 
+    // Write the current scenesFolder value to EditorPrefs
+    private void SaveFolderPref()
+    {
+        EditorPrefs.SetString(SCENES_FOLDER_PREF_KEY, scenesFolder);
+    }
 
     private void SaveOpenScenes()
     {
@@ -73,10 +141,15 @@ public partial class CreateNewSceneSetup : EditorWindow
 
     private void CreateScenes(string prefix = "NewScene")
     {
-        string basePath = "Assets/Scenes/";
+        // Use the user chosen folder, check the directory exists on disk
+        string basePath = scenesFolder;
+        if (!basePath.EndsWith("/")) basePath += "/";
+        basePath += prefix + "/";
         System.IO.Directory.CreateDirectory(basePath);
+
         Scene baseScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         EditorSceneManager.SaveScene(baseScene, $"{basePath + prefix}.unity");
+
         // add scene to build settings
         EditorBuildSettingsScene[] original = EditorBuildSettings.scenes;
         ArrayUtility.Add(ref original, new EditorBuildSettingsScene(basePath + prefix, true));
