@@ -1,6 +1,6 @@
-using NUnit.Framework;
-using SceneManagement;
+#if UNITY_EDITOR
 using System.Collections.Generic;
+using SceneManagement;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -123,3 +123,4 @@ public partial class CreateNewSceneSetup : EditorWindow
     }
 }
 
+#endif
