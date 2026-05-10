@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
-using SceneManagement;
-using System;
 using System.Collections.Generic;
+using SceneManagement;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -16,6 +15,7 @@ public partial class CreateNewSceneSetup : EditorWindow
 
     [SerializeField] private string scenePrefix = "NewScene";
     [SerializeField] private string scenesFolder = DEFAULT_SCENES_FOLDER;
+    [SerializeField] private bool addToBuildProfiles = true;
     [SerializeField] private bool setActiveInBuildProfiles = true;
 
     private string projectRoot;
@@ -38,7 +38,18 @@ public partial class CreateNewSceneSetup : EditorWindow
 
     // helper classes for JSON serialization — store GUIDs instead of object references
     // so the data stays valid even if assets are moved
+    [System.Serializable]
+    private class SavedSceneInfo
+    {
+        public string sceneName;
+        public List<string> prefabGuids = new List<string>();
+    }
 
+    [System.Serializable]
+    private class SavedSceneList
+    {
+        public List<SavedSceneInfo> scenes = new List<SavedSceneInfo>();
+    }
 
     [MenuItem("Tools/New Scene Setup")]
     public static void ShowWindow()
@@ -148,7 +159,6 @@ public partial class CreateNewSceneSetup : EditorWindow
         scenesFolder = EditorGUILayout.TextField(scenesFolder);
         if (EditorGUI.EndChangeCheck())
         {
-            // Persist immediately whenever the user edits the text field directly
             SaveFolderPref();
         }
 
@@ -165,7 +175,7 @@ public partial class CreateNewSceneSetup : EditorWindow
                 ""
             );
 
-            // OpenFolderPanel returns an absolute path; convert it to a project-relative one
+            // Convert to a project relative path
             if (!string.IsNullOrEmpty(absPath))
             {
                 string normalizedAbs = absPath.Replace("\\", "/");
@@ -193,17 +203,18 @@ public partial class CreateNewSceneSetup : EditorWindow
 
         EditorGUILayout.EndHorizontal();
 
-        // Small hint showing the resolved path so the user can confirm it looks right
         EditorGUILayout.HelpBox($"Scenes will be saved to: {scenesFolder}", MessageType.None);
         EditorGUILayout.Space();
 
-        setActiveInBuildProfiles = EditorGUILayout.Toggle("Set Active in Build Profiles", setActiveInBuildProfiles);
-        EditorGUILayout.HelpBox(
-            setActiveInBuildProfiles
-                ? "All created scenes will be added to the Build Profiles scene list as enabled."
-                : "All created scenes will be added to the Build Profiles scene list as disabled.",
-            MessageType.None
-        );
+        addToBuildProfiles = EditorGUILayout.Toggle("Add to Build Profiles", addToBuildProfiles);
+
+        if (addToBuildProfiles)
+        {
+            EditorGUI.indentLevel++;
+            setActiveInBuildProfiles = EditorGUILayout.Toggle("Active in Build Profiles", setActiveInBuildProfiles);
+            EditorGUI.indentLevel--;
+        }
+
         EditorGUILayout.Space();
 
         // set Additive Scenes
@@ -246,7 +257,9 @@ public partial class CreateNewSceneSetup : EditorWindow
 
         // add scene to build settings
         EditorBuildSettingsScene[] original = EditorBuildSettings.scenes;
-        ArrayUtility.Add(ref original, new EditorBuildSettingsScene(baseScenePath, setActiveInBuildProfiles));
+
+        if (addToBuildProfiles)
+            ArrayUtility.Add(ref original, new EditorBuildSettingsScene(baseScenePath, setActiveInBuildProfiles));
 
         // create additive scene manager
         GameObject additiveSceneManagerObj = new GameObject("Additive Scene Manager");
@@ -268,7 +281,9 @@ public partial class CreateNewSceneSetup : EditorWindow
             }
 
             EditorSceneManager.SaveScene(additiveScene);
-            ArrayUtility.Add(ref original, new EditorBuildSettingsScene(scenePath, setActiveInBuildProfiles));
+
+            if (addToBuildProfiles)
+                ArrayUtility.Add(ref original, new EditorBuildSettingsScene(scenePath, setActiveInBuildProfiles));
         }
 
         // access quin's scene list backing field 
@@ -286,13 +301,15 @@ public partial class CreateNewSceneSetup : EditorWindow
         managerSerliazedObject.ApplyModifiedProperties();
 
         // set build settings scenes to have all new scenes created
-        EditorBuildSettings.scenes = original;
+        if (addToBuildProfiles)
+            EditorBuildSettings.scenes = original;
+
         EditorSceneManager.SetActiveScene(baseScene);
         EditorSceneManager.SaveOpenScenes();
     }
 }
 
-[Serializable]
+[System.Serializable]
 public class SceneInfo
 {
     public string sceneName;
