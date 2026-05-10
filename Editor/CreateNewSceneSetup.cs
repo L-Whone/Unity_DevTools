@@ -8,13 +8,15 @@ using UnityEngine.SceneManagement;
 
 public partial class CreateNewSceneSetup : EditorWindow
 {
-    // EditorPrefs key
+    // EditorPrefs key 
     private const string SCENES_FOLDER_PREF_KEY = "CreateNewSceneSetup_ScenesFolder";
     private const string DEFAULT_SCENES_FOLDER = "Assets/Scenes/";
 
     [SerializeField] private string scenePrefix = "NewScene";
     [SerializeField] private string scenesFolder = DEFAULT_SCENES_FOLDER;
     [SerializeField] private bool setActiveInBuildProfiles = true;
+
+    private string projectRoot;
 
     [SerializeField]
     private List<SceneInfo> additiveScenes = new List<SceneInfo>
@@ -48,6 +50,8 @@ public partial class CreateNewSceneSetup : EditorWindow
 
         // Restore the saved folder path, falling back to the default if none is saved yet
         scenesFolder = EditorPrefs.GetString(SCENES_FOLDER_PREF_KEY, DEFAULT_SCENES_FOLDER);
+
+        projectRoot = System.IO.Path.GetFullPath(Application.dataPath + "/..").Replace("\\", "/");
     }
 
     private void OnGUI()
@@ -76,16 +80,19 @@ public partial class CreateNewSceneSetup : EditorWindow
         if (GUILayout.Button("Browse", GUILayout.Width(60)))
         {
             // Open a native folder picker starting from the current selection
+            string absoluteStart = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(projectRoot, scenesFolder)
+            ).Replace("\\", "/");
+
             string absPath = EditorUtility.OpenFolderPanel(
                 "Choose Scenes Folder",
-                scenesFolder,
+                absoluteStart,
                 ""
             );
 
             // OpenFolderPanel returns an absolute path; convert it to a project-relative one
             if (!string.IsNullOrEmpty(absPath))
             {
-                string projectRoot = System.IO.Path.GetFullPath(Application.dataPath + "/..").Replace("\\", "/");
                 string normalizedAbs = absPath.Replace("\\", "/");
 
                 if (normalizedAbs.StartsWith(projectRoot))
