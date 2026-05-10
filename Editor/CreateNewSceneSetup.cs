@@ -36,21 +36,6 @@ public partial class CreateNewSceneSetup : EditorWindow
 
     SerializedProperty additiveScenesProperty;
 
-    // helper classes for JSON serialization — store GUIDs instead of object references
-    // so the data stays valid even if assets are moved
-    [System.Serializable]
-    private class SavedSceneInfo
-    {
-        public string sceneName;
-        public List<string> prefabGuids = new List<string>();
-    }
-
-    [System.Serializable]
-    private class SavedSceneList
-    {
-        public List<SavedSceneInfo> scenes = new List<SavedSceneInfo>();
-    }
-
     [MenuItem("Tools/New Scene Setup")]
     public static void ShowWindow()
     {
@@ -199,6 +184,9 @@ public partial class CreateNewSceneSetup : EditorWindow
                 SaveFolderPref();
                 GUI.FocusControl(null); // clear keyboard focus so the text field refreshes
             }
+
+            // opening a panel mid-layout interrupts the GUI loop before EndHorizontal
+            GUIUtility.ExitGUI();
         }
 
         EditorGUILayout.EndHorizontal();
@@ -280,7 +268,7 @@ public partial class CreateNewSceneSetup : EditorWindow
                 PrefabUtility.InstantiatePrefab(prefab, additiveScene);
             }
 
-            EditorSceneManager.SaveScene(additiveScene);
+            EditorSceneManager.SaveScene(additiveScene, scenePath);
 
             if (addToBuildProfiles)
                 ArrayUtility.Add(ref original, new EditorBuildSettingsScene(scenePath, setActiveInBuildProfiles));
