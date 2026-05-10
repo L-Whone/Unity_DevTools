@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
-using System.Collections.Generic;
 using SceneManagement;
+using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -8,9 +9,10 @@ using UnityEngine.SceneManagement;
 
 public partial class CreateNewSceneSetup : EditorWindow
 {
-    // EditorPrefs key 
     private const string SCENES_FOLDER_PREF_KEY = "CreateNewSceneSetup_ScenesFolder";
     private const string DEFAULT_SCENES_FOLDER = "Assets/Scenes/";
+    private const string SAVE_FOLDER = "Assets/Editor/CreateNewSceneSetup";
+    private const string SAVE_FILE = "Assets/Editor/CreateNewSceneSetup/additiveScenes.json";
 
     [SerializeField] private string scenePrefix = "NewScene";
     [SerializeField] private string scenesFolder = DEFAULT_SCENES_FOLDER;
@@ -34,6 +36,10 @@ public partial class CreateNewSceneSetup : EditorWindow
 
     SerializedProperty additiveScenesProperty;
 
+    // helper classes for JSON serialization — store GUIDs instead of object references
+    // so the data stays valid even if assets are moved
+
+
     [MenuItem("Tools/New Scene Setup")]
     public static void ShowWindow()
     {
@@ -42,6 +48,9 @@ public partial class CreateNewSceneSetup : EditorWindow
 
     private void OnEnable()
     {
+        // load before creating serializedObject so it sees the restored state
+        LoadAdditiveScenes();
+
         // wrapper around the class it's in
         serializedObject = new SerializedObject(this);
 
@@ -52,6 +61,72 @@ public partial class CreateNewSceneSetup : EditorWindow
         scenesFolder = EditorPrefs.GetString(SCENES_FOLDER_PREF_KEY, DEFAULT_SCENES_FOLDER);
 
         projectRoot = System.IO.Path.GetFullPath(Application.dataPath + "/..").Replace("\\", "/");
+    }
+
+    private void OnDisable()
+    {
+        SaveAdditiveScenes();
+    }
+
+    private void SaveAdditiveScenes()
+    {
+        SavedSceneList saved = new SavedSceneList();
+
+        foreach (SceneInfo info in additiveScenes)
+        {
+            SavedSceneInfo savedInfo = new SavedSceneInfo { sceneName = info.sceneName };
+
+            foreach (GameObject prefab in info.prefabsToSpawn)
+            {
+                // store the GUID so the reference survives asset moves
+                string guid = prefab != null
+                    ? AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(prefab))
+                    : "";
+                savedInfo.prefabGuids.Add(guid);
+            }
+
+            saved.scenes.Add(savedInfo);
+        }
+
+        // create the save folder if this is the first run
+        if (!System.IO.Directory.Exists(SAVE_FOLDER))
+            System.IO.Directory.CreateDirectory(SAVE_FOLDER);
+
+        System.IO.File.WriteAllText(SAVE_FILE, JsonUtility.ToJson(saved, true));
+        AssetDatabase.Refresh();
+    }
+
+    private void LoadAdditiveScenes()
+    {
+        if (!System.IO.File.Exists(SAVE_FILE)) return;
+
+        string json = System.IO.File.ReadAllText(SAVE_FILE);
+        if (string.IsNullOrEmpty(json)) return;
+
+        SavedSceneList saved = JsonUtility.FromJson<SavedSceneList>(json);
+        if (saved?.scenes == null) return;
+
+        additiveScenes.Clear();
+
+        foreach (SavedSceneInfo savedInfo in saved.scenes)
+        {
+            SceneInfo info = new SceneInfo { sceneName = savedInfo.sceneName };
+
+            foreach (string guid in savedInfo.prefabGuids)
+            {
+                if (!string.IsNullOrEmpty(guid))
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    info.prefabsToSpawn.Add(AssetDatabase.LoadAssetAtPath<GameObject>(path));
+                }
+                else
+                {
+                    info.prefabsToSpawn.Add(null);
+                }
+            }
+
+            additiveScenes.Add(info);
+        }
     }
 
     private void OnGUI()
@@ -217,4 +292,23 @@ public partial class CreateNewSceneSetup : EditorWindow
     }
 }
 
+[Serializable]
+public class SceneInfo
+{
+    public string sceneName;
+    public List<GameObject> prefabsToSpawn = new List<GameObject>();
+}
+
+[System.Serializable]
+public class SavedSceneInfo
+{
+    public string sceneName;
+    public List<string> prefabGuids = new List<string>();
+}
+
+[System.Serializable]
+public class SavedSceneList
+{
+    public List<SavedSceneInfo> scenes = new List<SavedSceneInfo>();
+}
 #endif
