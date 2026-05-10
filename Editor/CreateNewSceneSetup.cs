@@ -8,12 +8,13 @@ using UnityEngine.SceneManagement;
 
 public partial class CreateNewSceneSetup : EditorWindow
 {
-    // EditorPrefs key — unique enough to avoid collisions with other tools
+    // EditorPrefs key
     private const string SCENES_FOLDER_PREF_KEY = "CreateNewSceneSetup_ScenesFolder";
     private const string DEFAULT_SCENES_FOLDER = "Assets/Scenes/";
 
     [SerializeField] private string scenePrefix = "NewScene";
     [SerializeField] private string scenesFolder = DEFAULT_SCENES_FOLDER;
+    [SerializeField] private bool setActiveInBuildProfiles = true;
 
     [SerializeField]
     private List<SceneInfo> additiveScenes = new List<SceneInfo>
@@ -114,6 +115,15 @@ public partial class CreateNewSceneSetup : EditorWindow
         EditorGUILayout.HelpBox($"Scenes will be saved to: {scenesFolder}", MessageType.None);
         EditorGUILayout.Space();
 
+        setActiveInBuildProfiles = EditorGUILayout.Toggle("Set Active in Build Profiles", setActiveInBuildProfiles);
+        EditorGUILayout.HelpBox(
+            setActiveInBuildProfiles
+                ? "All created scenes will be added to the Build Profiles scene list as enabled."
+                : "All created scenes will be added to the Build Profiles scene list as disabled.",
+            MessageType.None
+        );
+        EditorGUILayout.Space();
+
         // set Additive Scenes
         EditorGUILayout.PropertyField(additiveScenesProperty, true);
 
@@ -147,12 +157,14 @@ public partial class CreateNewSceneSetup : EditorWindow
         basePath += prefix + "/";
         System.IO.Directory.CreateDirectory(basePath);
 
+        string baseScenePath = $"{basePath}{prefix}.unity";
+
         Scene baseScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        EditorSceneManager.SaveScene(baseScene, $"{basePath + prefix}.unity");
+        EditorSceneManager.SaveScene(baseScene, baseScenePath);
 
         // add scene to build settings
         EditorBuildSettingsScene[] original = EditorBuildSettings.scenes;
-        ArrayUtility.Add(ref original, new EditorBuildSettingsScene(basePath + prefix, true));
+        ArrayUtility.Add(ref original, new EditorBuildSettingsScene(baseScenePath, setActiveInBuildProfiles));
 
         // create additive scene manager
         GameObject additiveSceneManagerObj = new GameObject("Additive Scene Manager");
@@ -174,7 +186,7 @@ public partial class CreateNewSceneSetup : EditorWindow
             }
 
             EditorSceneManager.SaveScene(additiveScene);
-            ArrayUtility.Add(ref original, new EditorBuildSettingsScene(scenePath, true));
+            ArrayUtility.Add(ref original, new EditorBuildSettingsScene(scenePath, setActiveInBuildProfiles));
         }
 
         // access quin's scene list backing field 
